@@ -1,4 +1,6 @@
-// ฟังก์ชันอ่านไฟล์และแปลงเป็น Base64
+// =========================================================================
+// ฟังก์ชันช่วย: แปลงไฟล์เป็น Base64 สำหรับอัปโหลดเข้า Google Drive
+// =========================================================================
 function getBase64(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -10,7 +12,9 @@ function getBase64(file) {
 
 let categoryMappingData = {}; // ตัวแปรเก็บโครงสร้างข้อมูลหมวดหมู่และระเบียบปฏิบัติ
 
-// 1. ตรวจสอบสิทธิ์อีเมล
+// =========================================================================
+// 1. ตรวจสอบสิทธิ์อีเมลผู้ยื่นคำขอ
+// =========================================================================
 document.getElementById('verifyBtn').addEventListener('click', async function() {
     const emailInput = document.getElementById('emailInput');
     const statusText = document.getElementById('emailStatus');
@@ -44,7 +48,7 @@ document.getElementById('verifyBtn').addEventListener('click', async function() 
             document.getElementById('position').value = data.position || "";
             document.getElementById('department').value = data.department || "";
 
-            // โหลดรายการหมวดหมู่งาน
+            // โหลดรายการหมวดหมู่งานทันทีที่ยืนยันตัวตนสำเร็จ
             loadCategories();
         } else {
             statusText.innerText = "❌ ไม่พบอีเมลนี้ในระบบฐานข้อมูล กรุณาตรวจสอบอีกครั้ง";
@@ -54,36 +58,63 @@ document.getElementById('verifyBtn').addEventListener('click', async function() 
     } catch (error) {
         statusText.innerText = "⚠️ เกิดข้อผิดพลาดในการเชื่อมต่อระบบ กรุณาลองใหม่อีกครั้ง";
         statusText.style.color = "#d93025";
-        console.error(error);
+        console.error("Check Email Error:", error);
     } finally {
         btn.innerText = "ตรวจสอบ";
         btn.disabled = false;
     }
 });
 
-// 2. ดึงรายการหมวดหมู่และชื่อระเบียบปฏิบัติจาก Google Sheets
+// =========================================================================
+// 2. ดึงรายการหมวดหมู่และชื่อระเบียบปฏิบัติจาก Google Sheets (ปรับปรุงพร้อม Alert)
+// =========================================================================
 async function loadCategories() {
+    const docIDSelect = document.getElementById('docID');
+    const docCategorySelect = document.getElementById('docCategory');
+    
+    docIDSelect.innerHTML = '<option value="">-- กำลังโหลดรายการหมวดงาน... --</option>';
+    docIDSelect.disabled = true;
+
     try {
         const response = await fetch(CONFIG.GOOGLE_SCRIPT_URL + "?action=getCategories");
-        const data = await response.json();
         
-        categoryMappingData = data;
-        const docIDSelect = document.getElementById('docID');
-        docIDSelect.innerHTML = '<option value="">-- เลือกหมวดงาน --</option>';
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
-        // เพิ่มตัวเลือกใน Dropdown หมวดงาน (คอลัมน์ H)
+        const data = await response.json();
+        categoryMappingData = data;
+        
+        // กรณีดึงข้อมูลได้แต่เป็นวัตถุว่างเปล่า
+        if (!data || Object.keys(data).length === 0) {
+            docIDSelect.innerHTML = '<option value="">❌ ไม่พบข้อมูลหมวดงานในระบบ</option>';
+            alert("⚠️ ไม่พบข้อมูลหมวดหมู่งาน กรุณาตรวจสอบชีต 'หมวดหมู่งาน' ใน Google Sheets หรือตรวจเช็คการ Deploy Web App");
+            return;
+        }
+
+        docIDSelect.innerHTML = '<option value="">-- เลือกหมวดงาน --</option>';
+        docIDSelect.disabled = false;
+
+        // วนลูปสร้างตัวเลือกใน Dropdown หมวดงาน (คอลัมน์ H)
         Object.keys(data).forEach(cat => {
             const opt = document.createElement('option');
             opt.value = cat;
             opt.textContent = cat;
             docIDSelect.appendChild(opt);
         });
+
     } catch (e) {
         console.error("เกิดข้อผิดพลาดในการโหลดหมวดหมู่งาน:", e);
+        docIDSelect.innerHTML = '<option value="">❌ เกิดข้อผิดพลาดในการโหลดข้อมูล</option>';
+        docCategorySelect.innerHTML = '<option value="">❌ ไม่สามารถโหลดข้อมูลระเบียบปฏิบัติได้</option>';
+        
+        alert("❌ ไม่สามารถดึงข้อมูลหมวดหมู่งานจากระบบได้!\n\nกรุณาตรวจสอบ:\n1. การกด Deploy เป็น New Version บน Google Apps Script\n2. ลิงก์ GOOGLE_SCRIPT_URL ใน config.js");
     }
 }
 
+// =========================================================================
 // 3. เมื่อเปลี่ยนหมวดงาน ให้แสดงรายชื่อระเบียบปฏิบัติเฉพาะหมวดนั้น (คอลัมน์ I)
+// =========================================================================
 document.getElementById('docID').addEventListener('change', function() {
     const selectedCategory = this.value;
     const docCategorySelect = document.getElementById('docCategory');
@@ -103,7 +134,9 @@ document.getElementById('docID').addEventListener('change', function() {
     }
 });
 
+// =========================================================================
 // 4. บันทึกและส่งข้อมูล DCR
+// =========================================================================
 document.getElementById('dcrForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
@@ -159,6 +192,7 @@ document.getElementById('dcrForm').addEventListener('submit', function(e) {
             console.log('บันทึกข้อมูลเบื้องหลังสำเร็จ');
         } catch (error) {
             console.error('เกิดข้อผิดพลาดในการบันทึกข้อมูล:', error);
+            alert('❌ เกิดข้อผิดพลาดขณะส่งข้อมูลไปบันทึก กรุณาลองใหม่อีกครั้ง');
         } finally {
             submitBtn.innerText = originalBtnText;
             submitBtn.style.backgroundColor = 'var(--mahidol-blue)';
