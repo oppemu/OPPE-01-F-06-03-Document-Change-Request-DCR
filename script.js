@@ -1,4 +1,4 @@
-// ฟังก์ชันอ่านไฟล์เป็น Base64
+// ฟังก์ชันอ่านไฟล์และแปลงเป็น Base64
 function getBase64(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -8,9 +8,9 @@ function getBase64(file) {
     });
 }
 
-let categoryMappingData = {}; // เก็บข้อมูลหมวดงานและระเบียบปฏิบัติ
+let categoryMappingData = {}; // ตัวแปรเก็บโครงสร้างข้อมูลหมวดหมู่และระเบียบปฏิบัติ
 
-// 1. ตรวจสอบอีเมล
+// 1. ตรวจสอบสิทธิ์อีเมล
 document.getElementById('verifyBtn').addEventListener('click', async function() {
     const emailInput = document.getElementById('emailInput');
     const statusText = document.getElementById('emailStatus');
@@ -39,7 +39,7 @@ document.getElementById('verifyBtn').addEventListener('click', async function() 
             emailInput.readOnly = true; 
             btn.style.display = "none"; 
 
-            // เติมข้อมูลผู้ยื่นคำขอ
+            // เติมข้อมูลผู้ยื่นคำขอลงในช่องอัตโนมัติ
             document.getElementById('reporterName').value = data.name || "";
             document.getElementById('position').value = data.position || "";
             document.getElementById('department').value = data.department || "";
@@ -61,7 +61,7 @@ document.getElementById('verifyBtn').addEventListener('click', async function() 
     }
 });
 
-// 2. ดึงรายการหมวดหมู่ (Category & Rule)
+// 2. ดึงรายการหมวดหมู่และชื่อระเบียบปฏิบัติจาก Google Sheets
 async function loadCategories() {
     try {
         const response = await fetch(CONFIG.GOOGLE_SCRIPT_URL + "?action=getCategories");
@@ -71,6 +71,7 @@ async function loadCategories() {
         const docIDSelect = document.getElementById('docID');
         docIDSelect.innerHTML = '<option value="">-- เลือกหมวดงาน --</option>';
 
+        // เพิ่มตัวเลือกใน Dropdown หมวดงาน (คอลัมน์ H)
         Object.keys(data).forEach(cat => {
             const opt = document.createElement('option');
             opt.value = cat;
@@ -78,11 +79,11 @@ async function loadCategories() {
             docIDSelect.appendChild(opt);
         });
     } catch (e) {
-        console.error("Failed to load categories", e);
+        console.error("เกิดข้อผิดพลาดในการโหลดหมวดหมู่งาน:", e);
     }
 }
 
-// 3. เมื่อเลือกหมวดงาน ให้เปลี่ยนรายการใน Dropdown ชื่อระเบียบปฏิบัติ
+// 3. เมื่อเปลี่ยนหมวดงาน ให้แสดงรายชื่อระเบียบปฏิบัติเฉพาะหมวดนั้น (คอลัมน์ I)
 document.getElementById('docID').addEventListener('change', function() {
     const selectedCategory = this.value;
     const docCategorySelect = document.getElementById('docCategory');
@@ -102,7 +103,7 @@ document.getElementById('docID').addEventListener('change', function() {
     }
 });
 
-// 4. ส่งฟอร์ม DCR
+// 4. บันทึกและส่งข้อมูล DCR
 document.getElementById('dcrForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
@@ -134,7 +135,7 @@ document.getElementById('dcrForm').addEventListener('submit', function(e) {
     window.scrollTo(0, 0);
 
     const originalBtnText = submitBtn.innerText;
-    submitBtn.innerText = '⏳ กำลังบันทึกข้อมูลเข้าสู่ระบบ...';
+    submitBtn.innerText = '⏳ กำลังบันทึกข้อมูลเบื้องหลัง...';
     submitBtn.style.backgroundColor = '#666';
     submitBtn.disabled = true;
 
@@ -155,9 +156,9 @@ document.getElementById('dcrForm').addEventListener('submit', function(e) {
                 body: JSON.stringify(payload)
             });
             
-            console.log('DCR submission background process completed.');
+            console.log('บันทึกข้อมูลเบื้องหลังสำเร็จ');
         } catch (error) {
-            console.error('Background Submit Error:', error);
+            console.error('เกิดข้อผิดพลาดในการบันทึกข้อมูล:', error);
         } finally {
             submitBtn.innerText = originalBtnText;
             submitBtn.style.backgroundColor = 'var(--mahidol-blue)';
