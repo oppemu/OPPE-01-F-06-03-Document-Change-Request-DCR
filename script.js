@@ -1,4 +1,4 @@
-// ฟังก์ชันสำหรับอ่านไฟล์และแปลงเป็น Base64
+// ฟังก์ชันอ่านไฟล์เป็น Base64
 function getBase64(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -8,6 +8,9 @@ function getBase64(file) {
     });
 }
 
+let categoryMappingData = {}; // เก็บข้อมูลหมวดงานและระเบียบปฏิบัติ
+
+// 1. ตรวจสอบอีเมล
 document.getElementById('verifyBtn').addEventListener('click', async function() {
     const emailInput = document.getElementById('emailInput');
     const statusText = document.getElementById('emailStatus');
@@ -16,8 +19,8 @@ document.getElementById('verifyBtn').addEventListener('click', async function() 
     const email = emailInput.value.trim();
 
     if (!email) {
-        statusText.innerText = "กรุณากรอกอีเมลก่อนกดตรวจสอบ";
-        statusText.style.color = "red";
+        statusText.innerText = "⚠️ กรุณากรอกอีเมลก่อนกดตรวจสอบ";
+        statusText.style.color = "#d93025";
         return;
     }
 
@@ -30,35 +33,27 @@ document.getElementById('verifyBtn').addEventListener('click', async function() 
         const data = await response.json();
 
         if (data.isValid) {
-            // ข้อความจะเปลี่ยนเป็นอันนี้เมื่อใช้โค้ดใหม่สำเร็จ
-            statusText.innerText = "อีเมลถูกต้อง ระบบดึงข้อมูลให้ท่านเรียบร้อยแล้ว";
-            statusText.style.color = "green";
+            statusText.innerText = "✅ ยืนยันตัวตนสำเร็จ ระบบดึงข้อมูลผู้ยื่นคำขอเรียบร้อยแล้ว";
+            statusText.style.color = "#188038";
             mainForm.style.display = "block";
             emailInput.readOnly = true; 
             btn.style.display = "none"; 
 
-            // เติมข้อมูลลงช่องกรอกอัตโนมัติ
-            document.querySelector('input[name="name"]').value = data.name || "";
-            document.querySelector('input[name="position"]').value = data.position || "";
-            
-            // จับคู่ข้อมูลส่วนงาน (Dropdown)
-            const deptSelect = document.querySelector('select[name="department"]');
-            if (data.department) {
-                for (let i = 0; i < deptSelect.options.length; i++) {
-                    if (deptSelect.options[i].value.trim() === data.department.trim()) {
-                        deptSelect.selectedIndex = i;
-                        break;
-                    }
-                }
-            }
+            // เติมข้อมูลผู้ยื่นคำขอ
+            document.getElementById('reporterName').value = data.name || "";
+            document.getElementById('position').value = data.position || "";
+            document.getElementById('department').value = data.department || "";
+
+            // โหลดรายการหมวดหมู่งาน
+            loadCategories();
         } else {
-            statusText.innerText = "ไม่พบอีเมลนี้ในระบบ กรุณาตรวจสอบอีกครั้ง";
-            statusText.style.color = "red";
+            statusText.innerText = "❌ ไม่พบอีเมลนี้ในระบบฐานข้อมูล กรุณาตรวจสอบอีกครั้ง";
+            statusText.style.color = "#d93025";
             mainForm.style.display = "none";
         }
     } catch (error) {
-        statusText.innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่";
-        statusText.style.color = "red";
+        statusText.innerText = "⚠️ เกิดข้อผิดพลาดในการเชื่อมต่อระบบ กรุณาลองใหม่อีกครั้ง";
+        statusText.style.color = "#d93025";
         console.error(error);
     } finally {
         btn.innerText = "ตรวจสอบ";
@@ -66,88 +61,109 @@ document.getElementById('verifyBtn').addEventListener('click', async function() 
     }
 });
 
-document.getElementById('trainingForm').addEventListener('submit', function(e) {
+// 2. ดึงรายการหมวดหมู่ (Category & Rule)
+async function loadCategories() {
+    try {
+        const response = await fetch(CONFIG.GOOGLE_SCRIPT_URL + "?action=getCategories");
+        const data = await response.json();
+        
+        categoryMappingData = data;
+        const docIDSelect = document.getElementById('docID');
+        docIDSelect.innerHTML = '<option value="">-- เลือกหมวดงาน --</option>';
+
+        Object.keys(data).forEach(cat => {
+            const opt = document.createElement('option');
+            opt.value = cat;
+            opt.textContent = cat;
+            docIDSelect.appendChild(opt);
+        });
+    } catch (e) {
+        console.error("Failed to load categories", e);
+    }
+}
+
+// 3. เมื่อเลือกหมวดงาน ให้เปลี่ยนรายการใน Dropdown ชื่อระเบียบปฏิบัติ
+document.getElementById('docID').addEventListener('change', function() {
+    const selectedCategory = this.value;
+    const docCategorySelect = document.getElementById('docCategory');
+    
+    docCategorySelect.innerHTML = '<option value="">-- เลือกชื่อระเบียบปฏิบัติ --</option>';
+    
+    if (selectedCategory && categoryMappingData[selectedCategory]) {
+        docCategorySelect.disabled = false;
+        categoryMappingData[selectedCategory].forEach(rule => {
+            const opt = document.createElement('option');
+            opt.value = rule;
+            opt.textContent = rule;
+            docCategorySelect.appendChild(opt);
+        });
+    } else {
+        docCategorySelect.disabled = true;
+    }
+});
+
+// 4. ส่งฟอร์ม DCR
+document.getElementById('dcrForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
     const form = e.target;
     const submitBtn = document.getElementById('submitBtn');
     
-    // 1. ดึงข้อมูลจากฟอร์มมาเก็บไว้ก่อนทันที
     let payload = {
-        email: form.email.value, // เพิ่มบรรทัดนี้
-        name: form.name.value,
+        action: 'submitDCR',
+        email: form.email.value,
+        reporterName: form.reporterName.value,
         position: form.position.value,
         department: form.department.value,
-        course: form.course.value,
-        course_attended: form.course_attended.value,
-        start_date: form.start_date.value,
-        end_date: form.end_date.value,
-        completion_date: form.completion_date.value,
-        duration: form.duration.value,
-        attendance_percent: form.attendance_percent.value,
-        status: form.status.value,
-        plan_to_apply: form.plan_to_apply.value,
-        content_match: form.content_match.value,
-        benefits_3_1: form.benefits_3_1.value,
-        benefits_3_2: form.benefits_3_2.value,
-        results: form.results.value,
-        problems: form.problems.value,
-        expectations: form.expectations.value
+        operationsName: form.operationsName.value,
+        docID: form.docID.value,
+        docCategory: form.docCategory.value,
+        docCode: form.docCode.value,
+        docCode2: form.docCode2.value,
+        docName: form.docName.value,
+        docItem: form.docItem.value,
+        docItem2: form.docItem2.value,
+        docIDetail: form.docIDetail.value
     };
 
-    // เก็บไฟล์ไว้ในตัวแปรก่อนที่ฟอร์มจะถูกรีเซ็ต
-    const certFile = document.getElementById('certFile').files[0];
-    const extraFile = document.getElementById('extraFile').files[0];
+    const attachFile = document.getElementById('attachFile').files[0];
 
-    // 2. แสดงข้อความสำเร็จทันที! โดยไม่ต้องรอ
-    alert('ระบบได้รับข้อมูลแล้ว!\n\nข้อมูลและไฟล์ของคุณกำลังถูกอัปโหลดอยู่เบื้องหลัง\n(ข้อควรระวัง: กรุณาอย่าเพิ่งปิดหน้าเว็บทันที ให้เปิดทิ้งไว้สักครู่)');
+    alert('🎉 ระบบได้รับคำขอแก้ไขเอกสาร (DCR) ของท่านเรียบร้อยแล้ว!\n\nข้อมูลกำลังถูกบันทึกลงระบบเบื้องหลัง');
     
-    // รีเซ็ตฟอร์มให้ว่างทันที
     form.reset();
     window.scrollTo(0, 0);
 
-    // เปลี่ยนสถานะปุ่มเพื่อบอกผู้ใช้ว่ากำลังส่งเบื้องหลัง (กันผู้ใช้ปิดหน้าเว็บ)
     const originalBtnText = submitBtn.innerText;
-    submitBtn.innerText = 'กำลังส่งข้อมูลเบื้องหลัง...';
-    submitBtn.style.backgroundColor = '#666'; // เปลี่ยนสีปุ่มให้ดูว่ากำลังทำงาน
+    submitBtn.innerText = '⏳ กำลังบันทึกข้อมูลเข้าสู่ระบบ...';
+    submitBtn.style.backgroundColor = '#666';
     submitBtn.disabled = true;
 
-    // 3. ฟังก์ชันประมวลผลเบื้องหลัง (แยกออกมาทำงานเงียบๆ)
     const processInBackground = async () => {
         try {
-            if (certFile) {
-                payload.certFile = {
-                    name: certFile.name,
-                    type: certFile.type,
-                    base64: await getBase64(certFile)
-                };
-            }
-            if (extraFile) {
-                payload.extraFile = {
-                    name: extraFile.name,
-                    type: extraFile.type,
-                    base64: await getBase64(extraFile)
+            if (attachFile) {
+                payload.attachFile = {
+                    name: attachFile.name,
+                    type: attachFile.type,
+                    base64: await getBase64(attachFile)
                 };
             }
 
             await fetch(CONFIG.GOOGLE_SCRIPT_URL, {
                 method: 'POST',
-                mode: 'no-cors', // ข้ามการเตือน Error จาก Browser
+                mode: 'no-cors',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify(payload)
             });
             
-            console.log('Background upload completed.');
+            console.log('DCR submission background process completed.');
         } catch (error) {
-            console.error('Background Error:', error);
+            console.error('Background Submit Error:', error);
         } finally {
-            // เมื่อเบื้องหลังส่งเสร็จ คืนค่าปุ่มกลับมาเป็นปกติ
             submitBtn.innerText = originalBtnText;
             submitBtn.style.backgroundColor = 'var(--mahidol-blue)';
             submitBtn.disabled = false;
         }
     };
 
-    // 4. สั่งให้ทำงานเบื้องหลัง
     processInBackground();
 });
