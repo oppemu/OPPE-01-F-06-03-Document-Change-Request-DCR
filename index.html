@@ -2,10 +2,32 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ใบร้องขอแก้ไขเอกสาร (Document Change Request : DCR)</title>
+    <title>ใบร้องขอแก้ไขเอกสาร (DCR)</title>
     <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <style>
+        :root { --mahidol-blue: #00246B; --mahidol-yellow: #F6A316; --bg-color: #f4f7f6; --text-color: #333; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Anuphan', sans-serif; background-color: var(--bg-color); color: var(--text-color); padding: 20px 10px; }
+        .container { max-width: 650px; margin: 0 auto; background: #fff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); overflow: hidden; }
+        .header { background-color: var(--mahidol-blue); color: #fff; padding: 24px 20px; text-align: center; border-bottom: 5px solid var(--mahidol-yellow); }
+        .header h1 { font-size: 1.35rem; font-weight: 600; margin-bottom: 4px; }
+        .header p { font-size: 0.88rem; color: #e0e0e0; }
+        form { padding: 24px 20px; }
+        .section-title { font-weight: 500; color: var(--mahidol-blue); border-bottom: 2px solid var(--mahidol-yellow); padding-bottom: 6px; margin: 25px 0 16px; font-size: 1.05rem; }
+        .form-group { margin-bottom: 16px; }
+        label { display: block; margin-bottom: 6px; font-size: 0.92rem; font-weight: 500; }
+        .required { color: #d93025; }
+        input[type="text"], input[type="email"], select, textarea { width: 100%; padding: 10px 12px; border: 1px solid #ccc; border-radius: 6px; font-family: 'Anuphan', sans-serif; font-size: 0.95rem; }
+        .readonly-field { background-color: #f1f3f4; color: #5f6368; cursor: not-allowed; }
+        .form-row { display: flex; gap: 12px; }
+        .half { flex: 1; }
+        .status-card { background: #e8f0fe; border-left: 4px solid var(--mahidol-blue); padding: 12px; margin-bottom: 15px; border-radius: 4px; font-size: 0.9rem; }
+        .upload-note { font-size: 0.82rem; color: #d93025; margin-bottom: 8px; }
+        #submitBtn { width: 100%; background-color: var(--mahidol-blue); color: var(--mahidol-yellow); border: none; padding: 14px; font-size: 1.1rem; font-weight: 600; border-radius: 6px; cursor: pointer; margin-top: 20px; }
+        #submitBtn:disabled { background-color: #ccc; color: #666; cursor: not-allowed; }
+        .loader { text-align: center; padding: 40px; font-size: 1.1rem; color: var(--mahidol-blue); }
+        @media (max-width: 480px) { .form-row { flex-direction: column; gap: 0; } }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -13,118 +35,247 @@
             <h1>ใบร้องขอแก้ไขเอกสาร (DCR)</h1>
             <p>กองกายภาพและสิ่งแวดล้อม มหาวิทยาลัยมหิดล</p>
         </div>
-        
-        <form id="dcrForm">
-            <!-- ส่วนที่ 1: ตรวจสอบสิทธิ์ผู้ใช้งาน -->
-            <div class="section-title">1. ตรวจสอบสิทธิ์ผู้ใช้งาน</div>
-            <div class="form-row" style="align-items: flex-end;">
-                <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                    <label>อีเมลผู้ยื่นคำขอ (Email) <span class="required">*</span></label>
-                    <input type="email" id="emailInput" name="email" placeholder="ระบุอีเมลมหิดล เช่น example@mahidol.ac.th" required>
+
+        <!-- หน้าต่างกำลังโหลดข้อมูลอัตโนมัติ -->
+        <div id="loadingArea" class="loader">
+            ⏳ กำลังตรวจสอบสิทธิ์บัญชี Google ของท่านอัตโนมัติ...
+        </div>
+
+        <!-- แจ้งเตือนเมื่อไม่พบสิทธิ์ -->
+        <div id="unauthorizedArea" style="display: none; padding: 30px; text-align: center;">
+            <h3 style="color: #d93025;">❌ ไม่พบข้อมูลสิทธิ์ผู้ใช้งาน</h3>
+            <p id="userEmailText" style="margin: 10px 0; font-weight: 500;"></p>
+            <p style="color: #666; font-size: 0.9rem;">อีเมลบัญชี Google นี้ยังไม่มีในระบบฐานข้อมูลสิทธิ์ผู้ใช้งาน กรุณาติดต่อผู้ดูแลระบบ</p>
+        </div>
+
+        <!-- ฟอร์มหลัก -->
+        <form id="dcrForm" style="display: none;">
+            <div class="status-card">
+                👤 เข้าสู่ระบบอัตโนมัติด้วยบัญชี: <b id="displayEmail"></b>
+            </div>
+
+            <div class="section-title">1. ข้อมูลผู้ยื่นคำขอ</div>
+            <input type="hidden" name="email" id="email">
+            <div class="form-group">
+                <label>ชื่อ-นามสกุล (ผู้ขอแก้ไข)</label>
+                <input type="text" name="reporterName" id="reporterName" readonly class="readonly-field">
+            </div>
+            <div class="form-row">
+                <div class="form-group half">
+                    <label>ตำแหน่ง</label>
+                    <input type="text" name="position" id="position" readonly class="readonly-field">
                 </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                    <button type="button" id="verifyBtn">ตรวจสอบ</button>
+                <div class="form-group half">
+                    <label>รหัสหน่วยงาน / ส่วนงาน</label>
+                    <input type="text" name="department" id="department" readonly class="readonly-field">
                 </div>
             </div>
-            <p id="emailStatus" class="status-msg"></p>
 
-            <!-- ส่วนที่ 2: ฟอร์มหลัก (ซ่อนไว้ก่อนตรวจสอบผ่าน) -->
-            <div id="mainFormArea" style="display: none;">
-                
-                <div class="section-title">2. ข้อมูลผู้ยื่นคำขอ</div>
-                <div class="form-group">
-                    <label>ชื่อ-นามสกุล (ผู้ขอแก้ไข)</label>
-                    <input type="text" name="reporterName" id="reporterName" readonly class="readonly-field">
-                </div>
-                <div class="form-row">
-                    <div class="form-group half">
-                        <label>ตำแหน่ง</label>
-                        <input type="text" name="position" id="position" readonly class="readonly-field">
-                    </div>
-                    <div class="form-group half">
-                        <label>รหัสหน่วยงาน / ส่วนงาน</label>
-                        <input type="text" name="department" id="department" readonly class="readonly-field">
-                    </div>
-                </div>
-
-                <div class="section-title">3. รายละเอียดการขอแก้ไขเอกสาร</div>
-                
-                <div class="form-group">
-                    <label>ประเภทการดำเนินการ <span class="required">*</span></label>
-                    <select name="operationsName" required>
-                        <option value="">-- เลือกประเภทการดำเนินการ --</option>
-                        <option value="ขึ้นทะเบียนใหม่">ขึ้นทะเบียนใหม่</option>
-                        <option value="ขอแก้ไขเอกสาร">ขอแก้ไขเอกสาร</option>
-                        <option value="ขอยกเลิกเอกสาร">ขอยกเลิกเอกสาร</option>
-                        <option value="ขอทบทวนเอกสาร">ขอทบทวนเอกสาร</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>ลำดับหมวด / ชื่อหมวดงาน (คอลัมน์ H) <span class="required">*</span></label>
-                    <select name="docID" id="docID" required>
-                        <option value="">-- กำลังโหลดรายการหมวดงาน... --</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>ชื่อระเบียบปฏิบัติ (DocCategory - คอลัมน์ I) <span class="required">*</span></label>
-                    <select name="docCategory" id="docCategory" required disabled>
-                        <option value="">-- กรุณาเลือกหมวดงานก่อน --</option>
-                    </select>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group half">
-                        <label>ประเภทเอกสาร (DocCode)</label>
-                        <select name="docCode">
-                            <option value="">-- เลือกประเภท --</option>
-                            <option value="P">P - ระเบียบปฏิบัติ (Procedure)</option>
-                            <option value="F">F - แบบฟอร์ม (Form)</option>
-                            <option value="M">M - คู่มือคุณภาพ (Manual)</option>
-                            <option value="W">W - คำแนะนำการทำงาน (Work Instruction)</option>
-                        </select>
-                    </div>
-                    <div class="form-group half">
-                        <label>รหัสเอกสาร (DocCode2)</label>
-                        <input type="text" name="docCode2" placeholder="ต.ย. OPPE-13-F-04-01">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>ชื่อเอกสาร <span class="required">*</span></label>
-                    <input type="text" name="docName" required placeholder="ระบุชื่อเอกสารที่ต้องการแก้ไข/จัดทำ">
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group half">
-                        <label>ครั้งที่แก้ไขเดิม (Current Rev.)</label>
-                        <input type="text" name="docItem" placeholder="ต.ย. 00">
-                    </div>
-                    <div class="form-group half">
-                        <label>แก้ไขครั้งที่ (New Rev.)</label>
-                        <input type="text" name="docItem2" placeholder="ต.ย. 01">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>รายละเอียดที่แก้ไข / เหตุผลการร้องขอ <span class="required">*</span></label>
-                    <textarea name="docIDetail" rows="4" required placeholder="ระบุรายละเอียดสิ่งที่ต้องการแก้ไข หรือเหตุผลในการร้องขอ..."></textarea>
-                </div>
-
-                <div class="section-title">4. เอกสารแนบประกอบ (ถ้ามี)</div>
-                <p class="upload-note">* รองรับไฟล์ PDF, Word หรือ รูปภาพ (ขนาดไม่เกิน 5MB)</p>
-                <div class="form-group">
-                    <label>ไฟล์ร่างเอกสาร/ไฟล์แนบเพิ่มเติม</label>
-                    <input type="file" id="attachFile" accept=".pdf,.doc,.docx,.jpg,.png">
-                </div>
-
-                <button type="submit" id="submitBtn">🚀 ส่งใบร้องขอแก้ไขเอกสาร (DCR)</button>
+            <div class="section-title">2. รายละเอียดการขอแก้ไขเอกสาร</div>
+            <div class="form-group">
+                <label>ประเภทการดำเนินการ <span class="required">*</span></label>
+                <select name="operationsName" required>
+                    <option value="">-- เลือกประเภทการดำเนินการ --</option>
+                    <option value="ขึ้นทะเบียนใหม่">ขึ้นทะเบียนใหม่</option>
+                    <option value="ขอแก้ไขเอกสาร">ขอแก้ไขเอกสาร</option>
+                    <option value="ขอยกเลิกเอกสาร">ขอยกเลิกเอกสาร</option>
+                    <option value="ขอทบทวนเอกสาร">ขอทบทวนเอกสาร</option>
+                </select>
             </div>
+
+            <div class="form-group">
+                <label>ลำดับหมวด / ชื่อหมวดงาน <span class="required">*</span></label>
+                <select name="docID" id="docID" required>
+                    <option value="">-- กำลังโหลดรายการหมวดงาน... --</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>ชื่อระเบียบปฏิบัติ <span class="required">*</span></label>
+                <select name="docCategory" id="docCategory" required disabled>
+                    <option value="">-- กรุณาเลือกหมวดงานก่อน --</option>
+                </select>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group half">
+                    <label>ประเภทเอกสาร (DocCode)</label>
+                    <select name="docCode">
+                        <option value="">-- เลือกประเภท --</option>
+                        <option value="P">P - ระเบียบปฏิบัติ (Procedure)</option>
+                        <option value="F">F - แบบฟอร์ม (Form)</option>
+                        <option value="M">M - คู่มือคุณภาพ (Manual)</option>
+                        <option value="W">W - คำแนะนำการทำงาน (Work Instruction)</option>
+                    </select>
+                </div>
+                <div class="form-group half">
+                    <label>รหัสเอกสาร (DocCode2)</label>
+                    <input type="text" name="docCode2" placeholder="ต.ย. OPPE-13-F-04-01">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>ชื่อเอกสาร <span class="required">*</span></label>
+                <input type="text" name="docName" required placeholder="ระบุชื่อเอกสารที่ต้องการแก้ไข/จัดทำ">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group half">
+                    <label>ครั้งที่แก้ไขเดิม (Current Rev.)</label>
+                    <input type="text" name="docItem" placeholder="ต.ย. 00">
+                </div>
+                <div class="form-group half">
+                    <label>แก้ไขครั้งที่ (New Rev.)</label>
+                    <input type="text" name="docItem2" placeholder="ต.ย. 01">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>รายละเอียดที่แก้ไข / เหตุผลการร้องขอ <span class="required">*</span></label>
+                <textarea name="docIDetail" rows="4" required placeholder="ระบุรายละเอียดสิ่งที่ต้องการแก้ไข..."></textarea>
+            </div>
+
+            <div class="section-title">3. เอกสารแนบประกอบ (ถ้ามี)</div>
+            <p class="upload-note">* รองรับไฟล์ PDF, Word หรือ รูปภาพ (ขนาดไม่เกิน 5MB)</p>
+            <div class="form-group">
+                <input type="file" id="attachFile" accept=".pdf,.doc,.docx,.jpg,.png">
+            </div>
+
+            <button type="submit" id="submitBtn">🚀 ส่งใบร้องขอแก้ไขเอกสาร (DCR)</button>
         </form>
     </div>
 
-    <script src="config.js"></script>
-    <script src="script.js"></script>
+    <script>
+        let categoryMappingData = {};
+
+        // อ่านไฟล์เป็น Base64
+        function getBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = error => reject(error);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // เริ่มทำงานเมื่อเปิดหน้าเว็บ: เช็กโปรไฟล์ผู้ใช้ทันที
+        window.onload = function() {
+            google.script.run
+                .withSuccessHandler(onProfileLoaded)
+                .withFailureHandler(onProfileError)
+                .getUserProfile();
+        };
+
+        function onProfileLoaded(user) {
+            document.getElementById('loadingArea').style.display = 'none';
+
+            if (user && user.isValid) {
+                document.getElementById('dcrForm').style.display = 'block';
+                document.getElementById('displayEmail').innerText = user.email;
+                document.getElementById('email').value = user.email;
+                document.getElementById('reporterName').value = user.name || "";
+                document.getElementById('position').value = user.position || "";
+                document.getElementById('department').value = user.department || "";
+
+                // ดึงหมวดหมู่งาน
+                loadCategories();
+            } else {
+                document.getElementById('unauthorizedArea').style.display = 'block';
+                document.getElementById('userEmailText').innerText = "(" + (user.email || "ไม่พบอีเมล") + ")";
+            }
+        }
+
+        function onProfileError(err) {
+            document.getElementById('loadingArea').innerHTML = "❌ เกิดข้อผิดพลาดในการดึงข้อมูลบัญชี: " + err;
+        }
+
+        function loadCategories() {
+            google.script.run.withSuccessHandler(function(data) {
+                categoryMappingData = data;
+                const docIDSelect = document.getElementById('docID');
+                
+                if (!data || Object.keys(data).length === 0) {
+                    docIDSelect.innerHTML = '<option value="">❌ ไม่พบข้อมูลหมวดงาน</option>';
+                    return;
+                }
+
+                docIDSelect.innerHTML = '<option value="">-- เลือกหมวดงาน --</option>';
+                Object.keys(data).forEach(cat => {
+                    const opt = document.createElement('option');
+                    opt.value = cat;
+                    opt.textContent = cat;
+                    docIDSelect.appendChild(opt);
+                });
+            }).getCategoriesData();
+        }
+
+        document.getElementById('docID').addEventListener('change', function() {
+            const selectedCategory = this.value;
+            const docCategorySelect = document.getElementById('docCategory');
+            
+            docCategorySelect.innerHTML = '<option value="">-- เลือกชื่อระเบียบปฏิบัติ --</option>';
+            
+            if (selectedCategory && categoryMappingData[selectedCategory]) {
+                docCategorySelect.disabled = false;
+                categoryMappingData[selectedCategory].forEach(rule => {
+                    const opt = document.createElement('option');
+                    opt.value = rule;
+                    opt.textContent = rule;
+                    docCategorySelect.appendChild(opt);
+                });
+            } else {
+                docCategorySelect.disabled = true;
+            }
+        });
+
+        // ส่งฟอร์ม DCR
+        document.getElementById('dcrForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.innerText = "⏳ กำลังบันทึกข้อมูล...";
+            submitBtn.disabled = true;
+
+            const attachFile = document.getElementById('attachFile').files[0];
+            let fileData = null;
+
+            if (attachFile) {
+                fileData = {
+                    name: attachFile.name,
+                    type: attachFile.type,
+                    base64: await getBase64(attachFile)
+                };
+            }
+
+            const payload = {
+                email: this.email.value,
+                reporterName: this.reporterName.value,
+                position: this.position.value,
+                department: this.department.value,
+                operationsName: this.operationsName.value,
+                docID: this.docID.value,
+                docCategory: this.docCategory.value,
+                docCode: this.docCode.value,
+                docCode2: this.docCode2.value,
+                docName: this.docName.value,
+                docItem: this.docItem.value,
+                docItem2: this.docItem2.value,
+                docIDetail: this.docIDetail.value,
+                attachFile: fileData
+            };
+
+            google.script.run
+                .withSuccessHandler(function(res) {
+                    if (res.success) {
+                        alert("🎉 ส่งใบร้องขอแก้ไขเอกสาร (DCR) สำเร็จ!\nเลขที่รายการ: " + res.dcrId);
+                        location.reload();
+                    } else {
+                        alert("❌ เกิดข้อผิดพลาด: " + res.error);
+                        submitBtn.innerText = "🚀 ส่งใบร้องขอแก้ไขเอกสาร (DCR)";
+                        submitBtn.disabled = false;
+                    }
+                })
+                .submitDCRData(payload);
+        });
+    </script>
 </body>
 </html>
