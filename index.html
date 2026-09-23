@@ -15,12 +15,12 @@
         </div>
         
         <form id="dcrForm">
-            <!-- ส่วนที่ 1: ตรวจสอบสิทธิ์ด้วยอีเมล -->
+            <!-- ส่วนที่ 1: ตรวจสอบสิทธิ์ผู้ใช้งาน -->
             <div class="section-title">1. ตรวจสอบสิทธิ์ผู้ใช้งาน</div>
             <div class="form-row" style="align-items: flex-end;">
                 <div class="form-group" style="flex: 1; margin-bottom: 0;">
                     <label>อีเมลผู้ยื่นคำขอ (Email) <span class="required">*</span></label>
-                    <input type="email" id="emailInput" name="email" placeholder="example@mahidol.ac.th" required>
+                    <input type="email" id="emailInput" name="email" placeholder="ระบุอีเมลมหิดล เช่น example@mahidol.ac.th" required>
                 </div>
                 <div class="form-group" style="margin-bottom: 0;">
                     <button type="button" id="verifyBtn">ตรวจสอบ</button>
@@ -28,7 +28,7 @@
             </div>
             <p id="emailStatus" class="status-msg"></p>
 
-            <!-- ส่วนที่ 2: ฟอร์มหลัก (ซ่อนไว้ก่อนยืนยันตัวตน) -->
+            <!-- ส่วนที่ 2: ฟอร์มหลัก (ซ่อนไว้ก่อนตรวจสอบผ่าน) -->
             <div id="mainFormArea" style="display: none;">
                 
                 <div class="section-title">2. ข้อมูลผู้ยื่นคำขอ</div>
@@ -42,7 +42,7 @@
                         <input type="text" name="position" id="position" readonly class="readonly-field">
                     </div>
                     <div class="form-group half">
-                        <label>หน่วยงาน / รหัสหน่วยงาน</label>
+                        <label>รหัสหน่วยงาน / ส่วนงาน</label>
                         <input type="text" name="department" id="department" readonly class="readonly-field">
                     </div>
                 </div>
@@ -53,7 +53,7 @@
                     <label>ประเภทการดำเนินการ <span class="required">*</span></label>
                     <select name="operationsName" required>
                         <option value="">-- เลือกประเภทการดำเนินการ --</option>
-                        <option value="ขอจัดทำใหม่">ขอจัดทำใหม่</option>
+                        <option value="ขึ้นทะเบียนใหม่">ขึ้นทะเบียนใหม่</option>
                         <option value="ขอแก้ไขเอกสาร">ขอแก้ไขเอกสาร</option>
                         <option value="ขอยกเลิกเอกสาร">ขอยกเลิกเอกสาร</option>
                         <option value="ขอทบทวนเอกสาร">ขอทบทวนเอกสาร</option>
@@ -61,14 +61,14 @@
                 </div>
 
                 <div class="form-group">
-                    <label>ลำดับหมวด / ชื่อหมวดงาน <span class="required">*</span></label>
+                    <label>ลำดับหมวด / ชื่อหมวดงาน (คอลัมน์ H) <span class="required">*</span></label>
                     <select name="docID" id="docID" required>
-                        <option value="">-- เลือกหมวดงาน --</option>
+                        <option value="">-- กำลังโหลดรายการหมวดงาน... --</option>
                     </select>
                 </div>
 
                 <div class="form-group">
-                    <label>ชื่อระเบียบปฏิบัติ (DocCategory) <span class="required">*</span></label>
+                    <label>ชื่อระเบียบปฏิบัติ (DocCategory - คอลัมน์ I) <span class="required">*</span></label>
                     <select name="docCategory" id="docCategory" required disabled>
                         <option value="">-- กรุณาเลือกหมวดงานก่อน --</option>
                     </select>
@@ -79,16 +79,15 @@
                         <label>ประเภทเอกสาร (DocCode)</label>
                         <select name="docCode">
                             <option value="">-- เลือกประเภท --</option>
-                            <option value="QM">QM - คู่มือคุณภาพ</option>
-                            <option value="QP">QP - ระเบียบปฏิบัติ</option>
-                            <option value="WI">WI - คำแนะนำการปฏิบัติงาน</option>
-                            <option value="SD">SD - เอกสารสนับสนุน</option>
-                            <option value="FM">FM - แบบฟอร์ม</option>
+                            <option value="P">P - ระเบียบปฏิบัติ (Procedure)</option>
+                            <option value="F">F - แบบฟอร์ม (Form)</option>
+                            <option value="M">M - คู่มือคุณภาพ (Manual)</option>
+                            <option value="W">W - คำแนะนำการทำงาน (Work Instruction)</option>
                         </select>
                     </div>
                     <div class="form-group half">
                         <label>รหัสเอกสาร (DocCode2)</label>
-                        <input type="text" name="docCode2" placeholder="ต.ย. OPPE-01-F-06-03">
+                        <input type="text" name="docCode2" placeholder="ต.ย. OPPE-13-F-04-01">
                     </div>
                 </div>
 
@@ -110,7 +109,7 @@
 
                 <div class="form-group">
                     <label>รายละเอียดที่แก้ไข / เหตุผลการร้องขอ <span class="required">*</span></label>
-                    <textarea name="docIDetail" rows="4" required placeholder="อธิบายรายละเอียดสิ่งที่ต้องการแก้ไข หรือเหตุผลในการร้องขอ..."></textarea>
+                    <textarea name="docIDetail" rows="4" required placeholder="ระบุรายละเอียดสิ่งที่ต้องการแก้ไข หรือเหตุผลในการร้องขอ..."></textarea>
                 </div>
 
                 <div class="section-title">4. เอกสารแนบประกอบ (ถ้ามี)</div>
