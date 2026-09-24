@@ -3,23 +3,38 @@ let categoriesData = {};
 document.addEventListener("DOMContentLoaded", () => {
     fetchCategories();
 
-    document.getElementById("verifyBtn").addEventListener("click", verifyEmail);
-    document.getElementById("docID").addEventListener("change", onCategoryChange);
-    document.getElementById("dcrForm").addEventListener("submit", handleSubmit);
+    const verifyBtn = document.getElementById("verifyBtn");
+    if (verifyBtn) verifyBtn.addEventListener("click", verifyEmail);
+
+    const docID = document.getElementById("docID");
+    if (docID) docID.addEventListener("change", onCategoryChange);
+
+    const dcrForm = document.getElementById("dcrForm");
+    if (dcrForm) dcrForm.addEventListener("submit", handleSubmit);
 });
 
-// ดึงหมวดงานเมื่อโหลดหน้าเว็บ
+// 1. ดึงข้อมูลหมวดหมู่งาน
 function fetchCategories() {
     const docSelect = document.getElementById("docID");
-    docSelect.innerHTML = '<option value="">-- กำลังดึงข้อมูลหมวดงาน... --</option>';
+    if (!docSelect) return;
 
-    fetch(`${WEB_APP_URL}?action=getCategories`)
+    docSelect.innerHTML = '<option value="">-- กำลังโหลดรายการหมวดงาน... --</option>';
+
+    const targetUrl = typeof CONFIG !== 'undefined' ? CONFIG.GOOGLE_SCRIPT_URL : WEB_APP_URL;
+
+    fetch(`${targetUrl}?action=getCategories`)
         .then(res => res.json())
         .then(data => {
             categoriesData = data;
             docSelect.innerHTML = '<option value="">-- เลือกหมวดงาน --</option>';
             
-            Object.keys(categoriesData).forEach(cat => {
+            const keys = Object.keys(categoriesData);
+            if (keys.length === 0) {
+                docSelect.innerHTML = '<option value="">❌ ไม่พบข้อมูลหมวดงาน</option>';
+                return;
+            }
+
+            keys.forEach(cat => {
                 const opt = document.createElement("option");
                 opt.value = cat;
                 opt.textContent = cat;
@@ -32,7 +47,7 @@ function fetchCategories() {
         });
 }
 
-// ตรวจสอบอีเมลผู้ใช้งาน
+// 2. ตรวจสอบอีเมลผู้ใช้งาน (พร้อมดักแก้ไขลำดับคำนำหน้าชื่อแบบอัตโนมัติ)
 function verifyEmail() {
     const emailInput = document.getElementById("emailInput").value.trim();
     const statusDiv = document.getElementById("emailStatus");
@@ -48,7 +63,9 @@ function verifyEmail() {
     statusDiv.className = "status-msg";
     statusDiv.textContent = "⏳ กำลังตรวจสอบสิทธิ์...";
 
-    fetch(`${WEB_APP_URL}?action=checkEmail&email=${encodeURIComponent(emailInput)}`)
+    const targetUrl = typeof CONFIG !== 'undefined' ? CONFIG.GOOGLE_SCRIPT_URL : WEB_APP_URL;
+
+    fetch(`${targetUrl}?action=checkEmail&email=${encodeURIComponent(emailInput)}`)
         .then(res => res.json())
         .then(data => {
             verifyBtn.disabled = false;
@@ -56,11 +73,20 @@ function verifyEmail() {
                 statusDiv.className = "status-msg success";
                 statusDiv.textContent = "✅ ยืนยันตัวตนสำเร็จ";
 
-                // แสดงผลชื่อที่จัดเรียงเรียบร้อยมาจาก Apps Script (คำนำหน้า + ชื่อ นามสกุล)
+                let formattedName = data.name || "";
+                
+                // ดักจับแก้ไขกรณีชื่อโดนต่อคำนำหน้าไว้ข้างหลังสุด
+                const prefixes = ["นาย", "นาง", "นางสาว", "ดร.", "ผศ.", "รศ.", "ศ."];
+                prefixes.forEach(p => {
+                    if (formattedName.endsWith(" " + p)) {
+                        formattedName = p + " " + formattedName.substring(0, formattedName.length - p.length - 1);
+                    }
+                });
+
                 document.getElementById("email").value = emailInput;
-                document.getElementById("reporterName").value = data.name; 
-                document.getElementById("position").value = data.position;
-                document.getElementById("department").value = data.department;
+                document.getElementById("reporterName").value = formattedName; 
+                document.getElementById("position").value = data.position || "";
+                document.getElementById("department").value = data.department || "";
 
                 document.getElementById("mainFormArea").style.display = "block";
             } else {
@@ -76,7 +102,7 @@ function verifyEmail() {
         });
 }
 
-// เปลี่ยนแปลงหมวดงาน -> โหลดรายชื่อระเบียบปฏิบัติ
+// 3. เมื่อเลือกหมวดงาน ให้เปลี่ยนรายการระเบียบปฏิบัติ
 function onCategoryChange() {
     const selectedCat = document.getElementById("docID").value;
     const catSelect = document.getElementById("docCategory");
@@ -98,7 +124,7 @@ function onCategoryChange() {
     }
 }
 
-// จัดการการส่งฟอร์ม
+// 4. ส่งฟอร์ม DCR
 function handleSubmit(e) {
     e.preventDefault();
     const submitBtn = document.getElementById("submitBtn");
@@ -113,7 +139,7 @@ function handleSubmit(e) {
     dataObj.action = "submitDCR";
 
     const fileInput = document.getElementById("attachFile");
-    if (fileInput.files.length > 0) {
+    if (fileInput && fileInput.files.length > 0) {
         const file = fileInput.files[0];
         const reader = new FileReader();
         reader.onload = function(evt) {
@@ -132,7 +158,9 @@ function handleSubmit(e) {
 }
 
 function sendDataToGAS(dataObj, submitBtn) {
-    fetch(WEB_APP_URL, {
+    const targetUrl = typeof CONFIG !== 'undefined' ? CONFIG.GOOGLE_SCRIPT_URL : WEB_APP_URL;
+
+    fetch(targetUrl, {
         method: "POST",
         body: JSON.stringify(dataObj)
     })
