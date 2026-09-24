@@ -56,7 +56,7 @@ function verifyEmail() {
                 statusDiv.className = "status-msg success";
                 statusDiv.textContent = "✅ ยืนยันตัวตนสำเร็จ";
 
-                // ใส่ข้อมูลผู้ใช้ลงในฟอร์ม (ดึง name ตรงๆ ไม่ต้องต่อ string เพิ่มเติม)
+                // แสดงผลชื่อที่จัดเรียงเรียบร้อยมาจาก Apps Script (คำนำหน้า + ชื่อ นามสกุล)
                 document.getElementById("email").value = emailInput;
                 document.getElementById("reporterName").value = data.name; 
                 document.getElementById("position").value = data.position;
@@ -76,7 +76,7 @@ function verifyEmail() {
         });
 }
 
-// เมื่อเลือกหมวดงาน ให้เปลี่ยนรายการระเบียบปฏิบัติ
+// เปลี่ยนแปลงหมวดงาน -> โหลดรายชื่อระเบียบปฏิบัติ
 function onCategoryChange() {
     const selectedCat = document.getElementById("docID").value;
     const catSelect = document.getElementById("docCategory");
@@ -98,7 +98,7 @@ function onCategoryChange() {
     }
 }
 
-// ส่งข้อมูลฟอร์ม
+// จัดการการส่งฟอร์ม
 function handleSubmit(e) {
     e.preventDefault();
     const submitBtn = document.getElementById("submitBtn");
