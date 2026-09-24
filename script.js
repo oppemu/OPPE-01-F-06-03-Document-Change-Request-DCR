@@ -1,176 +1,155 @@
-let categoryMappingData = {};
+let categoriesData = {};
 
-function getBase64(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result.split(',')[1]); 
-        reader.onerror = error => reject(error);
-        reader.readAsDataURL(file);
-    });
+document.addEventListener("DOMContentLoaded", () => {
+    fetchCategories();
+
+    document.getElementById("verifyBtn").addEventListener("click", verifyEmail);
+    document.getElementById("docID").addEventListener("change", onCategoryChange);
+    document.getElementById("dcrForm").addEventListener("submit", handleSubmit);
+});
+
+// ดึงหมวดงานเมื่อโหลดหน้าเว็บ
+function fetchCategories() {
+    const docSelect = document.getElementById("docID");
+    docSelect.innerHTML = '<option value="">-- กำลังดึงข้อมูลหมวดงาน... --</option>';
+
+    fetch(`${WEB_APP_URL}?action=getCategories`)
+        .then(res => res.json())
+        .then(data => {
+            categoriesData = data;
+            docSelect.innerHTML = '<option value="">-- เลือกหมวดงาน --</option>';
+            
+            Object.keys(categoriesData).forEach(cat => {
+                const opt = document.createElement("option");
+                opt.value = cat;
+                opt.textContent = cat;
+                docSelect.appendChild(opt);
+            });
+        })
+        .catch(err => {
+            console.error("Error fetching categories:", err);
+            docSelect.innerHTML = '<option value="">❌ ไม่พบข้อมูลหมวดงาน</option>';
+        });
 }
 
-// 1. ตรวจสอบสิทธิ์อีเมลผู้ยื่นคำขอ
-document.getElementById('verifyBtn').addEventListener('click', async function() {
-    const emailInput = document.getElementById('emailInput');
-    const statusText = document.getElementById('emailStatus');
-    const mainForm = document.getElementById('mainFormArea');
-    const btn = this;
-    const email = emailInput.value.trim();
+// ตรวจสอบอีเมลผู้ใช้งาน
+function verifyEmail() {
+    const emailInput = document.getElementById("emailInput").value.trim();
+    const statusDiv = document.getElementById("emailStatus");
+    const verifyBtn = document.getElementById("verifyBtn");
 
-    if (!email) {
-        statusText.innerText = "⚠️ กรุณากรอกอีเมลก่อนกดตรวจสอบ";
-        statusText.style.color = "#d93025";
+    if (!emailInput.endsWith("@mahidol.ac.th")) {
+        statusDiv.className = "status-msg error";
+        statusDiv.textContent = "❌ กรุณากรอกอีเมลองค์กร (@mahidol.ac.th) เท่านั้น";
         return;
     }
 
-    btn.innerText = "กำลังตรวจสอบ...";
-    btn.disabled = true;
-    statusText.innerText = "";
+    verifyBtn.disabled = true;
+    statusDiv.className = "status-msg";
+    statusDiv.textContent = "⏳ กำลังตรวจสอบสิทธิ์...";
 
-    try {
-        const response = await fetch(CONFIG.GOOGLE_SCRIPT_URL + "?action=checkEmail&email=" + encodeURIComponent(email));
-        const data = await response.json();
+    fetch(`${WEB_APP_URL}?action=checkEmail&email=${encodeURIComponent(emailInput)}`)
+        .then(res => res.json())
+        .then(data => {
+            verifyBtn.disabled = false;
+            if (data.isValid) {
+                statusDiv.className = "status-msg success";
+                statusDiv.textContent = "✅ ยืนยันตัวตนสำเร็จ";
 
-        if (data.isValid) {
-            statusText.innerText = "✅ ยืนยันตัวตนสำเร็จ";
-            statusText.style.color = "#188038";
-            mainForm.style.display = "block";
-            emailInput.readOnly = true; 
-            btn.style.display = "none"; 
+                // ใส่ข้อมูลผู้ใช้ลงในฟอร์ม (ดึง name ตรงๆ ไม่ต้องต่อ string เพิ่มเติม)
+                document.getElementById("email").value = emailInput;
+                document.getElementById("reporterName").value = data.name; 
+                document.getElementById("position").value = data.position;
+                document.getElementById("department").value = data.department;
 
-            document.getElementById('email').value = email;
-            document.getElementById('reporterName').value = data.name || "";
-            document.getElementById('position').value = data.position || "";
-            document.getElementById('department').value = data.department || "";
-
-            // โหลดรายการหมวดงานทันที
-            loadCategories();
-        } else {
-            statusText.innerText = "❌ ไม่พบอีเมลนี้ในระบบฐานข้อมูล กรุณาตรวจสอบอีกครั้ง";
-            statusText.style.color = "#d93025";
-            mainForm.style.display = "none";
-        }
-    } catch (error) {
-        statusText.innerText = "⚠️ เกิดข้อผิดพลาดในการเชื่อมต่อระบบ กรุณาลองใหม่อีกครั้ง";
-        statusText.style.color = "#d93025";
-        console.error("Check Email Error:", error);
-    } finally {
-        btn.innerText = "ตรวจสอบ";
-        btn.disabled = false;
-    }
-});
-
-// 2. ดึงรายการหมวดหมู่และชื่อระเบียบปฏิบัติจาก Google Sheets
-async function loadCategories() {
-    const docIDSelect = document.getElementById('docID');
-    const docCategorySelect = document.getElementById('docCategory');
-    
-    docIDSelect.innerHTML = '<option value="">-- กำลังโหลดรายการหมวดงาน... --</option>';
-    docIDSelect.disabled = true;
-
-    try {
-        const response = await fetch(CONFIG.GOOGLE_SCRIPT_URL + "?action=getCategories");
-        const data = await response.json();
-        categoryMappingData = data;
-        
-        if (!data || Object.keys(data).length === 0) {
-            docIDSelect.innerHTML = '<option value="">❌ ไม่พบข้อมูลหมวดงานในระบบ</option>';
-            return;
-        }
-
-        docIDSelect.innerHTML = '<option value="">-- เลือกหมวดงาน --</option>';
-        docIDSelect.disabled = false;
-
-        Object.keys(data).forEach(cat => {
-            const opt = document.createElement('option');
-            opt.value = cat;
-            opt.textContent = cat;
-            docIDSelect.appendChild(opt);
+                document.getElementById("mainFormArea").style.display = "block";
+            } else {
+                statusDiv.className = "status-msg error";
+                statusDiv.textContent = "❌ ไม่พบอีเมลนี้ในระบบสิทธิ์ผู้ใช้งาน";
+                document.getElementById("mainFormArea").style.display = "none";
+            }
+        })
+        .catch(err => {
+            verifyBtn.disabled = false;
+            statusDiv.className = "status-msg error";
+            statusDiv.textContent = "❌ เกิดข้อผิดพลาดในการเชื่อมต่อระบบ";
         });
+}
 
-    } catch (e) {
-        console.error("เกิดข้อผิดพลาดในการโหลดหมวดหมู่งาน:", e);
-        docIDSelect.innerHTML = '<option value="">❌ เกิดข้อผิดพลาดในการโหลดข้อมูล</option>';
-        docCategorySelect.innerHTML = '<option value="">❌ ไม่สามารถโหลดข้อมูลระเบียบปฏิบัติได้</option>';
+// เมื่อเลือกหมวดงาน ให้เปลี่ยนรายการระเบียบปฏิบัติ
+function onCategoryChange() {
+    const selectedCat = document.getElementById("docID").value;
+    const catSelect = document.getElementById("docCategory");
+
+    catSelect.innerHTML = "";
+    if (selectedCat && categoriesData[selectedCat]) {
+        catSelect.disabled = false;
+        catSelect.innerHTML = '<option value="">-- เลือกชื่อระเบียบปฏิบัติ --</option>';
+        
+        categoriesData[selectedCat].forEach(item => {
+            const opt = document.createElement("option");
+            opt.value = item;
+            opt.textContent = item;
+            catSelect.appendChild(opt);
+        });
+    } else {
+        catSelect.disabled = true;
+        catSelect.innerHTML = '<option value="">-- กรุณาเลือกหมวดงานก่อน --</option>';
     }
 }
 
-// 3. เมื่อเปลี่ยนหมวดงาน ให้แสดงระเบียบปฏิบัติเฉพาะหมวดนั้น
-document.getElementById('docID').addEventListener('change', function() {
-    const selectedCategory = this.value;
-    const docCategorySelect = document.getElementById('docCategory');
-    
-    docCategorySelect.innerHTML = '<option value="">-- เลือกชื่อระเบียบปฏิบัติ --</option>';
-    
-    if (selectedCategory && categoryMappingData[selectedCategory]) {
-        docCategorySelect.disabled = false;
-        categoryMappingData[selectedCategory].forEach(rule => {
-            const opt = document.createElement('option');
-            opt.value = rule;
-            opt.textContent = rule;
-            docCategorySelect.appendChild(opt);
-        });
-    } else {
-        docCategorySelect.disabled = true;
-    }
-});
-
-// 4. บันทึกและส่งข้อมูล DCR
-document.getElementById('dcrForm').addEventListener('submit', async function(e) {
+// ส่งข้อมูลฟอร์ม
+function handleSubmit(e) {
     e.preventDefault();
-    
-    const submitBtn = document.getElementById('submitBtn');
-    submitBtn.innerText = '⏳ กำลังบันทึกข้อมูล...';
+    const submitBtn = document.getElementById("submitBtn");
     submitBtn.disabled = true;
+    submitBtn.textContent = "⏳ กำลังส่งข้อมูล...";
 
-    const attachFile = document.getElementById('attachFile').files[0];
-    let fileData = null;
+    const form = e.target;
+    const formData = new FormData(form);
+    const dataObj = {};
+    formData.forEach((value, key) => dataObj[key] = value);
 
-    if (attachFile) {
-        fileData = {
-            name: attachFile.name,
-            type: attachFile.type,
-            base64: await getBase64(attachFile)
+    dataObj.action = "submitDCR";
+
+    const fileInput = document.getElementById("attachFile");
+    if (fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+            const base64 = evt.target.result.split(',')[1];
+            dataObj.attachFile = {
+                name: file.name,
+                type: file.type,
+                base64: base64
+            };
+            sendDataToGAS(dataObj, submitBtn);
         };
+        reader.readAsDataURL(file);
+    } else {
+        sendDataToGAS(dataObj, submitBtn);
     }
+}
 
-    const payload = {
-        action: 'submitDCR',
-        email: this.email.value,
-        reporterName: this.reporterName.value,
-        position: this.position.value,
-        department: this.department.value,
-        operationsName: this.operationsName.value,
-        docID: this.docID.value,
-        docCategory: this.docCategory.value,
-        docCode: this.docCode.value,
-        docCode2: this.docCode2.value,
-        docName: this.docName.value,
-        docItem: this.docItem.value,
-        docItem2: this.docItem2.value,
-        docIDetail: this.docIDetail.value,
-        attachFile: fileData
-    };
-
-    try {
-        const response = await fetch(CONFIG.GOOGLE_SCRIPT_URL, {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        });
-        const res = await response.json();
-
+function sendDataToGAS(dataObj, submitBtn) {
+    fetch(WEB_APP_URL, {
+        method: "POST",
+        body: JSON.stringify(dataObj)
+    })
+    .then(res => res.json())
+    .then(res => {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "🚀 ส่งใบร้องขอแก้ไขเอกสาร (DCR)";
         if (res.success) {
-            alert('🎉 ส่งใบร้องขอแก้ไขเอกสาร (DCR) สำเร็จ!\nเลขที่รายการ: ' + res.dcrId);
+            alert(`✅ บันทึกข้อมูลสำเร็จ! รหัสเอกสารของคุณคือ: ${res.dcrId}`);
             location.reload();
         } else {
-            alert('❌ เกิดข้อผิดพลาด: ' + res.error);
-            submitBtn.innerText = '🚀 ส่งใบร้องขอแก้ไขเอกสาร (DCR)';
-            submitBtn.disabled = false;
+            alert("❌ เกิดข้อผิดพลาด: " + res.error);
         }
-    } catch (error) {
-        console.error('เกิดข้อผิดพลาดในการส่งข้อมูล:', error);
-        alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
-        submitBtn.innerText = '🚀 ส่งใบร้องขอแก้ไขเอกสาร (DCR)';
+    })
+    .catch(err => {
         submitBtn.disabled = false;
-    }
-});
+        submitBtn.textContent = "🚀 ส่งใบร้องขอแก้ไขเอกสาร (DCR)";
+        alert("❌ เกิดข้อผิดพลาดในการส่งข้อมูล");
+    });
+}
