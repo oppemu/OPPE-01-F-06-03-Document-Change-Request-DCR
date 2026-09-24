@@ -150,7 +150,6 @@ textarea {
     border-radius: 6px;
     cursor: pointer;
     transition: background-color 0.2s;
-    margin-top: 0;
 }
 
 #verifyBtn:hover {
@@ -174,6 +173,12 @@ textarea {
 
 #submitBtn:hover {
     background-color: #001a4d;
+}
+
+#submitBtn:disabled, #verifyBtn:disabled {
+    background-color: #ccc;
+    color: #666;
+    cursor: not-allowed;
 }
 
 @media (max-width: 480px) {
