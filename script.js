@@ -43,6 +43,7 @@ document.getElementById('verifyBtn').addEventListener('click', async function() 
             document.getElementById('position').value = data.position || "";
             document.getElementById('department').value = data.department || "";
 
+            // โหลดรายการหมวดงานทันที
             loadCategories();
         } else {
             statusText.innerText = "❌ ไม่พบอีเมลนี้ในระบบฐานข้อมูล กรุณาตรวจสอบอีกครั้ง";
@@ -94,7 +95,7 @@ async function loadCategories() {
     }
 }
 
-// 3. เปลี่ยนหมวดงานแล้วดึงชื่อระเบียบปฏิบัติสัมพันธ์กัน
+// 3. เมื่อเปลี่ยนหมวดงาน ให้แสดงระเบียบปฏิบัติเฉพาะหมวดนั้น
 document.getElementById('docID').addEventListener('change', function() {
     const selectedCategory = this.value;
     const docCategorySelect = document.getElementById('docCategory');
