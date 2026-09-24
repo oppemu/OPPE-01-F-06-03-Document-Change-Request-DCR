@@ -1,6 +1,5 @@
-// =========================================================================
-// ฟังก์ชันช่วย: แปลงไฟล์เป็น Base64 สำหรับอัปโหลดเข้า Google Drive
-// =========================================================================
+let categoryMappingData = {};
+
 function getBase64(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -10,11 +9,7 @@ function getBase64(file) {
     });
 }
 
-let categoryMappingData = {}; // ตัวแปรเก็บโครงสร้างข้อมูลหมวดหมู่และระเบียบปฏิบัติ
-
-// =========================================================================
 // 1. ตรวจสอบสิทธิ์อีเมลผู้ยื่นคำขอ
-// =========================================================================
 document.getElementById('verifyBtn').addEventListener('click', async function() {
     const emailInput = document.getElementById('emailInput');
     const statusText = document.getElementById('emailStatus');
@@ -37,18 +32,17 @@ document.getElementById('verifyBtn').addEventListener('click', async function() 
         const data = await response.json();
 
         if (data.isValid) {
-            statusText.innerText = "✅ ยืนยันตัวตนสำเร็จ ระบบดึงข้อมูลผู้ยื่นคำขอเรียบร้อยแล้ว";
+            statusText.innerText = "✅ ยืนยันตัวตนสำเร็จ";
             statusText.style.color = "#188038";
             mainForm.style.display = "block";
             emailInput.readOnly = true; 
             btn.style.display = "none"; 
 
-            // เติมข้อมูลผู้ยื่นคำขอลงในช่องอัตโนมัติ
+            document.getElementById('email').value = email;
             document.getElementById('reporterName').value = data.name || "";
             document.getElementById('position').value = data.position || "";
             document.getElementById('department').value = data.department || "";
 
-            // โหลดรายการหมวดหมู่งานทันทีที่ยืนยันตัวตนสำเร็จ
             loadCategories();
         } else {
             statusText.innerText = "❌ ไม่พบอีเมลนี้ในระบบฐานข้อมูล กรุณาตรวจสอบอีกครั้ง";
@@ -65,9 +59,7 @@ document.getElementById('verifyBtn').addEventListener('click', async function() 
     }
 });
 
-// =========================================================================
-// 2. ดึงรายการหมวดหมู่และชื่อระเบียบปฏิบัติจาก Google Sheets (ปรับปรุงพร้อม Alert)
-// =========================================================================
+// 2. ดึงรายการหมวดหมู่และชื่อระเบียบปฏิบัติจาก Google Sheets
 async function loadCategories() {
     const docIDSelect = document.getElementById('docID');
     const docCategorySelect = document.getElementById('docCategory');
@@ -77,25 +69,17 @@ async function loadCategories() {
 
     try {
         const response = await fetch(CONFIG.GOOGLE_SCRIPT_URL + "?action=getCategories");
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
         const data = await response.json();
         categoryMappingData = data;
         
-        // กรณีดึงข้อมูลได้แต่เป็นวัตถุว่างเปล่า
         if (!data || Object.keys(data).length === 0) {
             docIDSelect.innerHTML = '<option value="">❌ ไม่พบข้อมูลหมวดงานในระบบ</option>';
-            alert("⚠️ ไม่พบข้อมูลหมวดหมู่งาน กรุณาตรวจสอบชีต 'หมวดหมู่งาน' ใน Google Sheets หรือตรวจเช็คการ Deploy Web App");
             return;
         }
 
         docIDSelect.innerHTML = '<option value="">-- เลือกหมวดงาน --</option>';
         docIDSelect.disabled = false;
 
-        // วนลูปสร้างตัวเลือกใน Dropdown หมวดงาน (คอลัมน์ H)
         Object.keys(data).forEach(cat => {
             const opt = document.createElement('option');
             opt.value = cat;
@@ -107,14 +91,10 @@ async function loadCategories() {
         console.error("เกิดข้อผิดพลาดในการโหลดหมวดหมู่งาน:", e);
         docIDSelect.innerHTML = '<option value="">❌ เกิดข้อผิดพลาดในการโหลดข้อมูล</option>';
         docCategorySelect.innerHTML = '<option value="">❌ ไม่สามารถโหลดข้อมูลระเบียบปฏิบัติได้</option>';
-        
-        alert("❌ ไม่สามารถดึงข้อมูลหมวดหมู่งานจากระบบได้!\n\nกรุณาตรวจสอบ:\n1. การกด Deploy เป็น New Version บน Google Apps Script\n2. ลิงก์ GOOGLE_SCRIPT_URL ใน config.js");
     }
 }
 
-// =========================================================================
-// 3. เมื่อเปลี่ยนหมวดงาน ให้แสดงรายชื่อระเบียบปฏิบัติเฉพาะหมวดนั้น (คอลัมน์ I)
-// =========================================================================
+// 3. เปลี่ยนหมวดงานแล้วดึงชื่อระเบียบปฏิบัติสัมพันธ์กัน
 document.getElementById('docID').addEventListener('change', function() {
     const selectedCategory = this.value;
     const docCategorySelect = document.getElementById('docCategory');
@@ -134,71 +114,62 @@ document.getElementById('docID').addEventListener('change', function() {
     }
 });
 
-// =========================================================================
 // 4. บันทึกและส่งข้อมูล DCR
-// =========================================================================
-document.getElementById('dcrForm').addEventListener('submit', function(e) {
+document.getElementById('dcrForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     
-    const form = e.target;
     const submitBtn = document.getElementById('submitBtn');
-    
-    let payload = {
-        action: 'submitDCR',
-        email: form.email.value,
-        reporterName: form.reporterName.value,
-        position: form.position.value,
-        department: form.department.value,
-        operationsName: form.operationsName.value,
-        docID: form.docID.value,
-        docCategory: form.docCategory.value,
-        docCode: form.docCode.value,
-        docCode2: form.docCode2.value,
-        docName: form.docName.value,
-        docItem: form.docItem.value,
-        docItem2: form.docItem2.value,
-        docIDetail: form.docIDetail.value
-    };
-
-    const attachFile = document.getElementById('attachFile').files[0];
-
-    alert('🎉 ระบบได้รับคำขอแก้ไขเอกสาร (DCR) ของท่านเรียบร้อยแล้ว!\n\nข้อมูลกำลังถูกบันทึกลงระบบเบื้องหลัง');
-    
-    form.reset();
-    window.scrollTo(0, 0);
-
-    const originalBtnText = submitBtn.innerText;
-    submitBtn.innerText = '⏳ กำลังบันทึกข้อมูลเบื้องหลัง...';
-    submitBtn.style.backgroundColor = '#666';
+    submitBtn.innerText = '⏳ กำลังบันทึกข้อมูล...';
     submitBtn.disabled = true;
 
-    const processInBackground = async () => {
-        try {
-            if (attachFile) {
-                payload.attachFile = {
-                    name: attachFile.name,
-                    type: attachFile.type,
-                    base64: await getBase64(attachFile)
-                };
-            }
+    const attachFile = document.getElementById('attachFile').files[0];
+    let fileData = null;
 
-            await fetch(CONFIG.GOOGLE_SCRIPT_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify(payload)
-            });
-            
-            console.log('บันทึกข้อมูลเบื้องหลังสำเร็จ');
-        } catch (error) {
-            console.error('เกิดข้อผิดพลาดในการบันทึกข้อมูล:', error);
-            alert('❌ เกิดข้อผิดพลาดขณะส่งข้อมูลไปบันทึก กรุณาลองใหม่อีกครั้ง');
-        } finally {
-            submitBtn.innerText = originalBtnText;
-            submitBtn.style.backgroundColor = 'var(--mahidol-blue)';
-            submitBtn.disabled = false;
-        }
+    if (attachFile) {
+        fileData = {
+            name: attachFile.name,
+            type: attachFile.type,
+            base64: await getBase64(attachFile)
+        };
+    }
+
+    const payload = {
+        action: 'submitDCR',
+        email: this.email.value,
+        reporterName: this.reporterName.value,
+        position: this.position.value,
+        department: this.department.value,
+        operationsName: this.operationsName.value,
+        docID: this.docID.value,
+        docCategory: this.docCategory.value,
+        docCode: this.docCode.value,
+        docCode2: this.docCode2.value,
+        docName: this.docName.value,
+        docItem: this.docItem.value,
+        docItem2: this.docItem2.value,
+        docIDetail: this.docIDetail.value,
+        attachFile: fileData
     };
 
-    processInBackground();
+    try {
+        const response = await fetch(CONFIG.GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+        const res = await response.json();
+
+        if (res.success) {
+            alert('🎉 ส่งใบร้องขอแก้ไขเอกสาร (DCR) สำเร็จ!\nเลขที่รายการ: ' + res.dcrId);
+            location.reload();
+        } else {
+            alert('❌ เกิดข้อผิดพลาด: ' + res.error);
+            submitBtn.innerText = '🚀 ส่งใบร้องขอแก้ไขเอกสาร (DCR)';
+            submitBtn.disabled = false;
+        }
+    } catch (error) {
+        console.error('เกิดข้อผิดพลาดในการส่งข้อมูล:', error);
+        alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+        submitBtn.innerText = '🚀 ส่งใบร้องขอแก้ไขเอกสาร (DCR)';
+        submitBtn.disabled = false;
+    }
 });
