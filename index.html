@@ -2,32 +2,10 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ใบร้องขอแก้ไขเอกสาร (DCR)</title>
     <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;500;600&display=swap" rel="stylesheet">
-    <style>
-        :root { --mahidol-blue: #00246B; --mahidol-yellow: #F6A316; --bg-color: #f4f7f6; --text-color: #333; }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Anuphan', sans-serif; background-color: var(--bg-color); color: var(--text-color); padding: 20px 10px; }
-        .container { max-width: 650px; margin: 0 auto; background: #fff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); overflow: hidden; }
-        .header { background-color: var(--mahidol-blue); color: #fff; padding: 24px 20px; text-align: center; border-bottom: 5px solid var(--mahidol-yellow); }
-        .header h1 { font-size: 1.35rem; font-weight: 600; margin-bottom: 4px; }
-        .header p { font-size: 0.88rem; color: #e0e0e0; }
-        form { padding: 24px 20px; }
-        .section-title { font-weight: 500; color: var(--mahidol-blue); border-bottom: 2px solid var(--mahidol-yellow); padding-bottom: 6px; margin: 25px 0 16px; font-size: 1.05rem; }
-        .form-group { margin-bottom: 16px; }
-        label { display: block; margin-bottom: 6px; font-size: 0.92rem; font-weight: 500; }
-        .required { color: #d93025; }
-        input[type="text"], input[type="email"], select, textarea { width: 100%; padding: 10px 12px; border: 1px solid #ccc; border-radius: 6px; font-family: 'Anuphan', sans-serif; font-size: 0.95rem; }
-        .readonly-field { background-color: #f1f3f4; color: #5f6368; cursor: not-allowed; }
-        .form-row { display: flex; gap: 12px; }
-        .half { flex: 1; }
-        .upload-note { font-size: 0.82rem; color: #d93025; margin-bottom: 8px; }
-        #submitBtn, #verifyBtn { background-color: var(--mahidol-blue); color: #fff; border: none; padding: 12px 20px; font-size: 1rem; font-weight: 600; border-radius: 6px; cursor: pointer; }
-        #submitBtn { width: 100%; color: var(--mahidol-yellow); margin-top: 20px; }
-        #submitBtn:disabled, #verifyBtn:disabled { background-color: #ccc; color: #666; cursor: not-allowed; }
-        .status-msg { font-size: 0.88rem; margin-top: 6px; font-weight: 500; }
-        @media (max-width: 480px) { .form-row { flex-direction: column; gap: 0; } }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
@@ -48,7 +26,7 @@
                 <div id="emailStatus" class="status-msg"></div>
             </div>
 
-            <!-- ส่วนฟอร์มหลัก (ซ่อนไว้ก่อนจนกว่าจะยืนยันอีเมลผ่าน) -->
+            <!-- ส่วนฟอร์มหลัก (แสดงผลหลังยืนยันตัวตนสำเร็จ) -->
             <div id="mainFormArea" style="display: none;">
                 <div class="section-title">1. ข้อมูลผู้ยื่นคำขอ</div>
                 <input type="hidden" name="email" id="email">
@@ -82,7 +60,7 @@
                 <div class="form-group">
                     <label>ลำดับหมวด / ชื่อหมวดงาน <span class="required">*</span></label>
                     <select name="docID" id="docID" required>
-                        <option value="">-- กรุณายืนยันอีเมลก่อน --</option>
+                        <option value="">-- กำลังดึงข้อมูลหมวดงาน... --</option>
                     </select>
                 </div>
 
@@ -143,170 +121,6 @@
     </div>
 
     <script src="config.js"></script>
-    <script>
-        let categoryMappingData = {};
-
-        function getBase64(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = error => reject(error);
-                reader.readAsDataURL(file);
-            });
-        }
-
-        // ตรวจสอบอีเมลผู้ใช้งาน
-        document.getElementById('verifyBtn').addEventListener('click', async function() {
-            const emailInput = document.getElementById('emailInput');
-            const statusText = document.getElementById('emailStatus');
-            const mainForm = document.getElementById('mainFormArea');
-            const btn = this;
-            const email = emailInput.value.trim();
-
-            if (!email) {
-                statusText.innerText = "⚠️ กรุณากรอกอีเมลก่อนตรวจสอบ";
-                statusText.style.color = "#d93025";
-                return;
-            }
-
-            btn.innerText = "กำลังตรวจสอบ...";
-            btn.disabled = true;
-            statusText.innerText = "";
-
-            try {
-                const response = await fetch(CONFIG.GOOGLE_SCRIPT_URL + "?action=checkEmail&email=" + encodeURIComponent(email));
-                const data = await response.json();
-
-                if (data.isValid) {
-                    statusText.innerText = "✅ ยืนยันตัวตนสำเร็จ";
-                    statusText.style.color = "#188038";
-                    mainForm.style.display = "block";
-                    emailInput.readOnly = true;
-                    btn.style.display = "none";
-
-                    document.getElementById('email').value = email;
-                    document.getElementById('reporterName').value = data.name || "";
-                    document.getElementById('position').value = data.position || "";
-                    document.getElementById('department').value = data.department || "";
-
-                    loadCategories();
-                } else {
-                    statusText.innerText = "❌ ไม่พบอีเมลนี้ในระบบฐานข้อมูลสิทธิ์ผู้ใช้งาน";
-                    statusText.style.color = "#d93025";
-                    mainForm.style.display = "none";
-                }
-            } catch (err) {
-                statusText.innerText = "⚠️ เกิดข้อผิดพลาดในการเชื่อมต่อระบบ";
-                statusText.style.color = "#d93025";
-            } finally {
-                btn.innerText = "ตรวจสอบ";
-                btn.disabled = false;
-            }
-        });
-
-        // โหลดหมวดงาน
-        async function loadCategories() {
-            const docIDSelect = document.getElementById('docID');
-            docIDSelect.innerHTML = '<option value="">-- กำลังโหลดรายการหมวดงาน... --</option>';
-
-            try {
-                const response = await fetch(CONFIG.GOOGLE_SCRIPT_URL + "?action=getCategories");
-                const data = await response.json();
-                categoryMappingData = data;
-
-                if (!data || Object.keys(data).length === 0) {
-                    docIDSelect.innerHTML = '<option value="">❌ ไม่พบข้อมูลหมวดงาน</option>';
-                    return;
-                }
-
-                docIDSelect.innerHTML = '<option value="">-- เลือกหมวดงาน --</option>';
-                Object.keys(data).forEach(cat => {
-                    const opt = document.createElement('option');
-                    opt.value = cat;
-                    opt.textContent = cat;
-                    docIDSelect.appendChild(opt);
-                });
-            } catch (err) {
-                docIDSelect.innerHTML = '<option value="">❌ เกิดข้อผิดพลาดในการโหลดข้อมูล</option>';
-            }
-        }
-
-        document.getElementById('docID').addEventListener('change', function() {
-            const selectedCategory = this.value;
-            const docCategorySelect = document.getElementById('docCategory');
-            
-            docCategorySelect.innerHTML = '<option value="">-- เลือกชื่อระเบียบปฏิบัติ --</option>';
-            
-            if (selectedCategory && categoryMappingData[selectedCategory]) {
-                docCategorySelect.disabled = false;
-                categoryMappingData[selectedCategory].forEach(rule => {
-                    const opt = document.createElement('option');
-                    opt.value = rule;
-                    opt.textContent = rule;
-                    docCategorySelect.appendChild(opt);
-                });
-            } else {
-                docCategorySelect.disabled = true;
-            }
-        });
-
-        // ส่งข้อมูลฟอร์ม
-        document.getElementById('dcrForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const submitBtn = document.getElementById('submitBtn');
-            submitBtn.innerText = "⏳ กำลังบันทึกข้อมูล...";
-            submitBtn.disabled = true;
-
-            const attachFile = document.getElementById('attachFile').files[0];
-            let fileData = null;
-
-            if (attachFile) {
-                fileData = {
-                    name: attachFile.name,
-                    type: attachFile.type,
-                    base64: await getBase64(attachFile)
-                };
-            }
-
-            const payload = {
-                action: "submitDCR",
-                email: this.email.value,
-                reporterName: this.reporterName.value,
-                position: this.position.value,
-                department: this.department.value,
-                operationsName: this.operationsName.value,
-                docID: this.docID.value,
-                docCategory: this.docCategory.value,
-                docCode: this.docCode.value,
-                docCode2: this.docCode2.value,
-                docName: this.docName.value,
-                docItem: this.docItem.value,
-                docItem2: this.docItem2.value,
-                docIDetail: this.docIDetail.value,
-                attachFile: fileData
-            };
-
-            try {
-                const response = await fetch(CONFIG.GOOGLE_SCRIPT_URL, {
-                    method: "POST",
-                    body: JSON.stringify(payload)
-                });
-                const res = await response.json();
-
-                if (res.success) {
-                    alert("🎉 ส่งใบร้องขอแก้ไขเอกสาร (DCR) สำเร็จ!\nเลขที่รายการ: " + res.dcrId);
-                    location.reload();
-                } else {
-                    alert("❌ เกิดข้อผิดพลาด: " + res.error);
-                    submitBtn.innerText = "🚀 ส่งใบร้องขอแก้ไขเอกสาร (DCR)";
-                    submitBtn.disabled = false;
-                }
-            } catch (err) {
-                alert("❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
-                submitBtn.innerText = "🚀 ส่งใบร้องขอแก้ไขเอกสาร (DCR)";
-                submitBtn.disabled = false;
-            }
-        });
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>
