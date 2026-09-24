@@ -13,22 +13,22 @@ document.addEventListener("DOMContentLoaded", () => {
     if (dcrForm) dcrForm.addEventListener("submit", handleSubmit);
 });
 
-// ฟังก์ชันช่วยเรียก JSONP ป้องกันปัญหา CORS บน GitHub Pages
-function fetchJSONP(url, callbackName) {
+// ฟังก์ชันดึงข้อมูลแบบ JSONP เพื่อเลี่ยงปัญหา CORS
+function fetchJSONP(url) {
     return new Promise((resolve, reject) => {
+        const callbackName = 'jsonp_cb_' + Math.round(100000 * Math.random());
         const script = document.createElement('script');
-        const name = callbackName || 'jsonp_cb_' + Math.round(100000 * Math.random());
         
-        window[name] = (data) => {
-            delete window[name];
+        window[callbackName] = (data) => {
+            delete window[callbackName];
             document.body.removeChild(script);
             resolve(data);
         };
 
         const delimiter = url.includes('?') ? '&' : '?';
-        script.src = `${url}${delimiter}callback=${name}`;
+        script.src = `${url}${delimiter}callback=${callbackName}`;
         script.onerror = (err) => {
-            delete window[name];
+            delete window[callbackName];
             document.body.removeChild(script);
             reject(err);
         };
