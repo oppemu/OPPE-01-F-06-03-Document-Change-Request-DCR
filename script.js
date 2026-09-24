@@ -47,7 +47,7 @@ function fetchCategories() {
         });
 }
 
-// 2. ตรวจสอบอีเมลผู้ใช้งาน (พร้อมดักแก้ไขลำดับคำนำหน้าชื่อแบบอัตโนมัติ)
+// 2. ตรวจสอบอีเมลผู้ใช้งาน
 function verifyEmail() {
     const emailInput = document.getElementById("emailInput").value.trim();
     const statusDiv = document.getElementById("emailStatus");
@@ -73,18 +73,8 @@ function verifyEmail() {
                 statusDiv.className = "status-msg success";
                 statusDiv.textContent = "✅ ยืนยันตัวตนสำเร็จ";
 
-                let formattedName = data.name || "";
-                
-                // ดักจับแก้ไขกรณีชื่อโดนต่อคำนำหน้าไว้ข้างหลังสุด
-                const prefixes = ["นาย", "นาง", "นางสาว", "ดร.", "ผศ.", "รศ.", "ศ."];
-                prefixes.forEach(p => {
-                    if (formattedName.endsWith(" " + p)) {
-                        formattedName = p + " " + formattedName.substring(0, formattedName.length - p.length - 1);
-                    }
-                });
-
                 document.getElementById("email").value = emailInput;
-                document.getElementById("reporterName").value = formattedName; 
+                document.getElementById("reporterName").value = data.name || ""; 
                 document.getElementById("position").value = data.position || "";
                 document.getElementById("department").value = data.department || "";
 
