@@ -22,7 +22,7 @@ function fetchCategories() {
 
     const targetUrl = typeof CONFIG !== 'undefined' ? CONFIG.GOOGLE_SCRIPT_URL : WEB_APP_URL;
 
-    fetch(`${targetUrl}?action=getCategories`)
+    fetch(`${targetUrl}?action=getCategories`, { method: 'GET' })
         .then(res => res.json())
         .then(data => {
             categoriesData = data;
@@ -43,7 +43,7 @@ function fetchCategories() {
         })
         .catch(err => {
             console.error("Error fetching categories:", err);
-            docSelect.innerHTML = '<option value="">❌ ไม่พบข้อมูลหมวดงาน</option>';
+            docSelect.innerHTML = '<option value="">❌ เกิดข้อผิดพลาดในการโหลดหมวดงาน</option>';
         });
 }
 
