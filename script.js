@@ -13,17 +13,38 @@ document.addEventListener("DOMContentLoaded", () => {
     if (dcrForm) dcrForm.addEventListener("submit", handleSubmit);
 });
 
+// ฟังก์ชันช่วยเรียก JSONP ป้องกันปัญหา CORS บน GitHub Pages
+function fetchJSONP(url, callbackName) {
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        const name = callbackName || 'jsonp_cb_' + Math.round(100000 * Math.random());
+        
+        window[name] = (data) => {
+            delete window[name];
+            document.body.removeChild(script);
+            resolve(data);
+        };
+
+        const delimiter = url.includes('?') ? '&' : '?';
+        script.src = `${url}${delimiter}callback=${name}`;
+        script.onerror = (err) => {
+            delete window[name];
+            document.body.removeChild(script);
+            reject(err);
+        };
+        document.body.appendChild(script);
+    });
+}
+
 // 1. ดึงข้อมูลหมวดหมู่งาน
 function fetchCategories() {
     const docSelect = document.getElementById("docID");
     if (!docSelect) return;
 
     docSelect.innerHTML = '<option value="">-- กำลังโหลดรายการหมวดงาน... --</option>';
-
     const targetUrl = typeof CONFIG !== 'undefined' ? CONFIG.GOOGLE_SCRIPT_URL : WEB_APP_URL;
 
-    fetch(`${targetUrl}?action=getCategories`, { method: 'GET' })
-        .then(res => res.json())
+    fetchJSONP(`${targetUrl}?action=getCategories`)
         .then(data => {
             categoriesData = data;
             docSelect.innerHTML = '<option value="">-- เลือกหมวดงาน --</option>';
@@ -65,8 +86,7 @@ function verifyEmail() {
 
     const targetUrl = typeof CONFIG !== 'undefined' ? CONFIG.GOOGLE_SCRIPT_URL : WEB_APP_URL;
 
-    fetch(`${targetUrl}?action=checkEmail&email=${encodeURIComponent(emailInput)}`)
-        .then(res => res.json())
+    fetchJSONP(`${targetUrl}?action=checkEmail&email=${encodeURIComponent(emailInput)}`)
         .then(data => {
             verifyBtn.disabled = false;
             if (data.isValid) {
